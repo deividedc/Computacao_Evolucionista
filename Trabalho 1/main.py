@@ -20,7 +20,7 @@ parametros = {
 }
 
 # === LEITURA DA INSTÂNCIA DO PROBLEMA ===
-caminho_arquivo = "E-n23-k3.evrp"  # Caminho do arquivo .evrp
+caminho_arquivo = "./evrp-benchmark-set/E-n23-k3.evrp"  # Caminho do arquivo .evrp
 coordenadas, deposito = ler_arquivo_evrp(caminho_arquivo)  # Lê coordenadas e depósito
 clientes = [i for i in coordenadas if i != deposito]        # Lista de clientes (exclui o depósito)
 

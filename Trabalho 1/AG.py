@@ -38,12 +38,10 @@ def ler_arquivo_evrp(caminho_arquivo):
     return coordenadas, deposito
 
 # Calcula a distância euclidiana entre dois pontos
-
 def distancia(ponto1, ponto2):
     return np.linalg.norm(np.array(ponto1) - np.array(ponto2))
 
 # Avalia a distância total de uma rota completa
-
 def distancia_total(rota, coordenadas, deposito):
     dist = distancia(coordenadas[deposito], coordenadas[rota[0]])
     for i in range(len(rota) - 1):
@@ -59,31 +57,26 @@ def decodificar_cromossomo(cromossomo, clientes, parametros):
     return [x for _, x in sorted(zip(prioridades, clientes), reverse=True)]
 
 # Gera população inicial binária com 0s e 1s
-
 def inicializar_populacao(n_clientes, parametros):
     k = parametros['BITS_POR_PRIORIDADE']
     tamanho = n_clientes * k
     return [[random.randint(0, 1) for _ in range(tamanho)] for _ in range(parametros['TAMANHO_POPULACAO'])]
 
 # Crossover de ponto único
-
 def cruzamento(pai1, pai2):
     ponto = random.randint(1, len(pai1) - 1)
     return pai1[:ponto] + pai2[ponto:], pai2[:ponto] + pai1[ponto:]
 
 # Muta cromossomo com flip de bits
-
 def mutacao(cromossomo, parametros):
     taxa = parametros['TAXA_MUTACAO']
     return [1 - bit if random.random() < taxa else bit for bit in cromossomo]
 
 # Seleção por torneio
-
 def selecao_torneio(pop, aptidoes, k):
     return min(random.sample(list(zip(pop, aptidoes)), k), key=lambda x: x[1])[0]
 
 # Algoritmo Genético
-
 def evoluir(coordenadas, deposito, clientes, parametros):
     n = len(clientes)
     populacao = inicializar_populacao(n, parametros)
@@ -116,7 +109,6 @@ def evoluir(coordenadas, deposito, clientes, parametros):
     return melhor_dist, melhor_rota
 
 # Função para plotar e salvar a rota encontrada
-
 def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
     plt.figure(figsize=(8, 6))
 
@@ -131,9 +123,20 @@ def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
                 [coordenadas[i][1] for i in clientes],
                 c='blue', label='Clientes', zorder=2)
 
+    # Adiciona o número do cliente próximo ao ponto azul
+    for i in clientes:
+        plt.text(coordenadas[i][0], coordenadas[i][1], str(i),
+                 color='black', fontsize=8, fontweight='bold',
+                 verticalalignment='bottom', horizontalalignment='right', zorder=4)
+
     # Depósito (círculo vermelho ainda mais acima)
     plt.scatter(coordenadas[deposito][0], coordenadas[deposito][1],
-                c='red', s=100, label='Depósito', zorder=3)
+                c='red', s=50, label='Depósito', zorder=3)
+
+    # Mostrar número do depósito em vermelho perto do ponto
+    plt.text(coordenadas[deposito][0], coordenadas[deposito][1], str(deposito),
+             color='black', fontsize=8, fontweight='bold',
+             verticalalignment='bottom', horizontalalignment='left', zorder=4)
 
     plt.title("Rota do Veículo")
     plt.xlabel("X")
@@ -144,3 +147,4 @@ def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
     os.makedirs(os.path.dirname(caminho_salvar), exist_ok=True)
     plt.savefig(caminho_salvar)
     plt.close()
+
