@@ -1,0 +1,50 @@
+{
+    "media_distancia": 665.3313496202002,
+    "desvio_padrao_distancia": 0.0,
+    "minimo_distancia": 665.3313496202002,
+    "maximo_distancia": 665.3313496202002,
+    "media_tempo": 126.18018555641174,
+    "desvio_padrao_tempo": 0.0,
+    "resultados_execucoes": [
+        {
+            "execucao": 1,
+            "distancia": 665.3313496202002,
+            "rota": [
+                1,
+                28,
+                21,
+                30,
+                23,
+                20,
+                27,
+                24,
+                22,
+                19,
+                31,
+                15,
+                18,
+                16,
+                2,
+                32,
+                4,
+                17,
+                3,
+                7,
+                12,
+                29,
+                14,
+                11,
+                10,
+                6,
+                5,
+                26,
+                9,
+                8,
+                25,
+                13,
+                1
+            ],
+            "tempo_execucao": 126.18018555641174
+        }
+    ]
+}
