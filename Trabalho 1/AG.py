@@ -6,6 +6,9 @@ import os
 
 # === Função para leitura do arquivo .evrp ===
 def ler_arquivo_evrp(caminho_arquivo):
+    """
+    Lê um arquivo EVRP e extrai as coordenadas dos nós e o ID do depósito.
+    """
     with open(caminho_arquivo, 'r') as f:
         linhas = f.readlines()
 
@@ -31,11 +34,11 @@ def ler_arquivo_evrp(caminho_arquivo):
 
     return coordenadas, deposito
 
-# Distância euclidiana
+# === Função de distância euclidiana ===
 def distancia(ponto1, ponto2):
     return np.linalg.norm(np.array(ponto1) - np.array(ponto2))
 
-# Distância total de uma rota
+# === Avaliação da distância total de uma rota ===
 def distancia_total(rota, coordenadas, deposito):
     dist = distancia(coordenadas[deposito], coordenadas[rota[0]])
     for i in range(len(rota) - 1):
@@ -43,7 +46,7 @@ def distancia_total(rota, coordenadas, deposito):
     dist += distancia(coordenadas[rota[-1]], coordenadas[deposito])
     return dist
 
-# === Representação Gray ===
+# === Conversão para código Gray ===
 def inteiro_para_gray(n):
     return n ^ (n >> 1)
 
@@ -54,7 +57,7 @@ def gray_para_inteiro(g):
         g >>= 1
     return n
 
-# Decodifica cromossomo binário com valores em Gray
+# === Decodifica cromossomo binário em prioridades via código Gray ===
 def decodificar_cromossomo(cromossomo, clientes, parametros):
     n = len(clientes)
     k = parametros['BITS_POR_PRIORIDADE']
@@ -66,7 +69,7 @@ def decodificar_cromossomo(cromossomo, clientes, parametros):
         prioridades.append(valor_gray)
     return [x for _, x in sorted(zip(prioridades, clientes), reverse=True)]
 
-# Inicializa população com valores em Gray
+# === Inicializa a população com valores em Gray ===
 def inicializar_populacao(n_clientes, parametros):
     k = parametros['BITS_POR_PRIORIDADE']
     max_valor = 2**k - 1
@@ -81,22 +84,29 @@ def inicializar_populacao(n_clientes, parametros):
         populacao.append(individuo)
     return populacao
 
-# Crossover de ponto único
+# === Operadores genéticos ===
 def cruzamento(pai1, pai2):
+    """Crossover de ponto único."""
     ponto = random.randint(1, len(pai1) - 1)
     return pai1[:ponto] + pai2[ponto:], pai2[:ponto] + pai1[ponto:]
 
-# Muta bit com taxa de mutação
 def mutacao(cromossomo, parametros):
+    """Mutação por flip de bits com uma taxa definida."""
     taxa = parametros['TAXA_MUTACAO']
     return [1 - bit if random.random() < taxa else bit for bit in cromossomo]
 
-# Seleção por torneio
 def selecao_torneio(pop, aptidoes, k):
+    """Seleção por torneio de k indivíduos."""
     return min(random.sample(list(zip(pop, aptidoes)), k), key=lambda x: x[1])[0]
 
-# Evolução principal
+# === Função principal de evolução com critério de parada por estagnação ===
 def evoluir(coordenadas, deposito, clientes, parametros):
+    """
+    Executa o algoritmo genético para encontrar uma rota otimizada para o EVRP.
+    Critérios de parada:
+    - Número máximo de avaliações.
+    - Número máximo de gerações sem melhora.
+    """
     n = len(clientes)
     populacao = inicializar_populacao(n, parametros)
     max_aval = 25000 * len(coordenadas)
@@ -105,18 +115,24 @@ def evoluir(coordenadas, deposito, clientes, parametros):
     melhor_rota = None
     num_elitistas = parametros.get('NUM_ELITISTAS', 1)
 
+    # Novo: controle de estagnação
+    sem_melhora = 0
+    MAX_SEM_MELHORA = parametros.get('MAX_SEM_MELHORA', 200)
+
     while avaliacoes < max_aval:
         rotas = [decodificar_cromossomo(c, clientes, parametros) for c in populacao]
         aptidoes = [distancia_total(r, coordenadas, deposito) for r in rotas]
         avaliacoes += len(populacao)
 
+        # Ordena população por aptidão crescente (melhor = menor distância)
         pop_ordenada = [ind for _, ind in sorted(zip(aptidoes, populacao), key=lambda x: x[0])]
         rotas_ordenadas = [r for _, r in sorted(zip(aptidoes, rotas), key=lambda x: x[0])]
         aptidoes_ordenadas = sorted(aptidoes)
 
         nova_pop = []
-        nova_pop.extend(pop_ordenada[:num_elitistas])
+        nova_pop.extend(pop_ordenada[:num_elitistas])  # elitismo
 
+        # Geração da nova população
         while len(nova_pop) < parametros['TAMANHO_POPULACAO']:
             pai1 = selecao_torneio(pop_ordenada, aptidoes_ordenadas, parametros['TORNEIO_K'])
             pai2 = selecao_torneio(pop_ordenada, aptidoes_ordenadas, parametros['TORNEIO_K'])
@@ -130,20 +146,33 @@ def evoluir(coordenadas, deposito, clientes, parametros):
 
         populacao = nova_pop
 
+        # Atualiza a melhor solução e checa estagnação
         if aptidoes_ordenadas[0] < melhor_dist:
             melhor_dist = aptidoes_ordenadas[0]
             melhor_rota = rotas_ordenadas[0]
+            sem_melhora = 0
+        else:
+            sem_melhora += 1
+
+        # Parar se não houver melhora por muitas gerações
+        if sem_melhora >= MAX_SEM_MELHORA:
+            break
 
     return melhor_dist, melhor_rota
 
-# Plota a rota final
+# === Função para plotar e salvar a rota encontrada ===
 def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
+    """
+    Gera um gráfico da rota final do veículo e salva em imagem.
+    """
     plt.figure(figsize=(8, 6))
 
+    # Trajeto da rota
     xs = [coordenadas[i][0] for i in rota]
     ys = [coordenadas[i][1] for i in rota]
     plt.plot(xs, ys, color='green', linewidth=2, zorder=1)
 
+    # Pontos dos clientes
     clientes = [i for i in rota if i != deposito]
     plt.scatter([coordenadas[i][0] for i in clientes],
                 [coordenadas[i][1] for i in clientes],
@@ -154,9 +183,9 @@ def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
                  color='black', fontsize=8, fontweight='bold',
                  verticalalignment='bottom', horizontalalignment='right', zorder=4)
 
+    # Depósito
     plt.scatter(coordenadas[deposito][0], coordenadas[deposito][1],
                 c='red', s=50, label='Depósito', zorder=3)
-
     plt.text(coordenadas[deposito][0], coordenadas[deposito][1], str(deposito),
              color='black', fontsize=8, fontweight='bold',
              verticalalignment='bottom', horizontalalignment='left', zorder=4)

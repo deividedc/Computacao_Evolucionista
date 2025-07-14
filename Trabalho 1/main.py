@@ -12,12 +12,13 @@ NUM_EXECUCOES = 20
 
 # Parâmetros do Algoritmo Genético
 parametros = {
-    'BITS_POR_PRIORIDADE': 8,              # Bits usados para codificar prioridade de clientes
-    'TAMANHO_POPULACAO':   200,            # Tamanho da população
-    'TAXA_MUTACAO':        0.02,           # Probabilidade de mutação por bit
-    'SEMENTE_BASE':        42,             # Semente para geração de números aleatórios
-    'TORNEIO_K':           20,              # Tamanho do torneio para seleção
-    'NUM_ELITISTAS':       2               # manter os 2 melhores de cada geração
+    'BITS_POR_PRIORIDADE': 16,              # Bits usados para codificar prioridade de clientes
+    'TAMANHO_POPULACAO':   500,             # Tamanho da população
+    'TAXA_MUTACAO':        0.02,            # Probabilidade de mutação por bit
+    'SEMENTE_BASE':        42,              # Semente para geração de números aleatórios
+    'TORNEIO_K':           50,              # Tamanho do torneio para seleção
+    'NUM_ELITISTAS':       2,               # manter os 2 melhores de cada geração
+    'MAX_SEM_MELHORA':     2000              # coondição de paraca caso o modelo estagne 
 }
 
 
