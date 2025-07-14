@@ -9,14 +9,17 @@ from AG import ler_arquivo_evrp, evoluir, plotar_rota
 # Número de execuções independentes do Algoritmo Genético
 NUM_EXECUCOES = 20
 
+
 # Parâmetros do Algoritmo Genético
 parametros = {
-    'BITS_POR_PRIORIDADE': 5,    # Bits usados para codificar prioridade de clientes
-    'TAMANHO_POPULACAO': 100,    # Tamanho da população
-    'TAXA_MUTACAO': 0.02,        # Probabilidade de mutação por bit
-    'SEMENTE_BASE': 36,          # Semente para geração de números aleatórios
-    'TORNEIO_K': 10              # Tamanho do torneio para seleção
+    'BITS_POR_PRIORIDADE': 8,              # Bits usados para codificar prioridade de clientes
+    'TAMANHO_POPULACAO':   200,            # Tamanho da população
+    'TAXA_MUTACAO':        0.02,           # Probabilidade de mutação por bit
+    'SEMENTE_BASE':        42,             # Semente para geração de números aleatórios
+    'TORNEIO_K':           20,              # Tamanho do torneio para seleção
+    'NUM_ELITISTAS':       2               # manter os 2 melhores de cada geração
 }
+
 
 # Caminho da pasta onde estão os arquivos .evrp
 caminho = './evrp-benchmark-set'

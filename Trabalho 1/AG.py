@@ -6,12 +6,6 @@ import os
 
 # === Função para leitura do arquivo .evrp ===
 def ler_arquivo_evrp(caminho_arquivo):
-    """
-    Lê um arquivo EVRP com seções de coordenadas e depósito
-    Retorna:
-    - coordenadas: dicionário {id: (x, y)}
-    - deposito: ID do depósito
-    """
     with open(caminho_arquivo, 'r') as f:
         linhas = f.readlines()
 
@@ -37,11 +31,11 @@ def ler_arquivo_evrp(caminho_arquivo):
 
     return coordenadas, deposito
 
-# Calcula a distância euclidiana entre dois pontos
+# Distância euclidiana
 def distancia(ponto1, ponto2):
     return np.linalg.norm(np.array(ponto1) - np.array(ponto2))
 
-# Avalia a distância total de uma rota completa
+# Distância total de uma rota
 def distancia_total(rota, coordenadas, deposito):
     dist = distancia(coordenadas[deposito], coordenadas[rota[0]])
     for i in range(len(rota) - 1):
@@ -49,25 +43,50 @@ def distancia_total(rota, coordenadas, deposito):
     dist += distancia(coordenadas[rota[-1]], coordenadas[deposito])
     return dist
 
-# Decodifica o cromossomo binário contínuo por blocos
+# === Representação Gray ===
+def inteiro_para_gray(n):
+    return n ^ (n >> 1)
+
+def gray_para_inteiro(g):
+    n = 0
+    while g:
+        n ^= g
+        g >>= 1
+    return n
+
+# Decodifica cromossomo binário com valores em Gray
 def decodificar_cromossomo(cromossomo, clientes, parametros):
     n = len(clientes)
     k = parametros['BITS_POR_PRIORIDADE']
-    prioridades = [int(''.join(str(bit) for bit in cromossomo[i*k:(i+1)*k]), 2) for i in range(n)]
+    prioridades = []
+    for i in range(n):
+        bits = cromossomo[i*k:(i+1)*k]
+        valor_bin = int(''.join(str(b) for b in bits), 2)
+        valor_gray = gray_para_inteiro(valor_bin)
+        prioridades.append(valor_gray)
     return [x for _, x in sorted(zip(prioridades, clientes), reverse=True)]
 
-# Gera população inicial binária com 0s e 1s
+# Inicializa população com valores em Gray
 def inicializar_populacao(n_clientes, parametros):
     k = parametros['BITS_POR_PRIORIDADE']
-    tamanho = n_clientes * k
-    return [[random.randint(0, 1) for _ in range(tamanho)] for _ in range(parametros['TAMANHO_POPULACAO'])]
+    max_valor = 2**k - 1
+    populacao = []
+    for _ in range(parametros['TAMANHO_POPULACAO']):
+        individuo = []
+        for _ in range(n_clientes):
+            valor = random.randint(0, max_valor)
+            valor_gray = inteiro_para_gray(valor)
+            bits = list(map(int, bin(valor_gray)[2:].zfill(k)))
+            individuo.extend(bits)
+        populacao.append(individuo)
+    return populacao
 
 # Crossover de ponto único
 def cruzamento(pai1, pai2):
     ponto = random.randint(1, len(pai1) - 1)
     return pai1[:ponto] + pai2[ponto:], pai2[:ponto] + pai1[ponto:]
 
-# Muta cromossomo com flip de bits
+# Muta bit com taxa de mutação
 def mutacao(cromossomo, parametros):
     taxa = parametros['TAXA_MUTACAO']
     return [1 - bit if random.random() < taxa else bit for bit in cromossomo]
@@ -76,7 +95,7 @@ def mutacao(cromossomo, parametros):
 def selecao_torneio(pop, aptidoes, k):
     return min(random.sample(list(zip(pop, aptidoes)), k), key=lambda x: x[1])[0]
 
-# Algoritmo Genético
+# Evolução principal
 def evoluir(coordenadas, deposito, clientes, parametros):
     n = len(clientes)
     populacao = inicializar_populacao(n, parametros)
@@ -84,56 +103,60 @@ def evoluir(coordenadas, deposito, clientes, parametros):
     avaliacoes = 0
     melhor_dist = float('inf')
     melhor_rota = None
+    num_elitistas = parametros.get('NUM_ELITISTAS', 1)
 
     while avaliacoes < max_aval:
         rotas = [decodificar_cromossomo(c, clientes, parametros) for c in populacao]
         aptidoes = [distancia_total(r, coordenadas, deposito) for r in rotas]
         avaliacoes += len(populacao)
 
+        pop_ordenada = [ind for _, ind in sorted(zip(aptidoes, populacao), key=lambda x: x[0])]
+        rotas_ordenadas = [r for _, r in sorted(zip(aptidoes, rotas), key=lambda x: x[0])]
+        aptidoes_ordenadas = sorted(aptidoes)
+
         nova_pop = []
-        elite_idx = np.argmin(aptidoes)
-        nova_pop.append(populacao[elite_idx])
+        nova_pop.extend(pop_ordenada[:num_elitistas])
 
         while len(nova_pop) < parametros['TAMANHO_POPULACAO']:
-            pai1 = selecao_torneio(populacao, aptidoes, parametros['TORNEIO_K'])
-            pai2 = selecao_torneio(populacao, aptidoes, parametros['TORNEIO_K'])
+            pai1 = selecao_torneio(pop_ordenada, aptidoes_ordenadas, parametros['TORNEIO_K'])
+            pai2 = selecao_torneio(pop_ordenada, aptidoes_ordenadas, parametros['TORNEIO_K'])
             filho1, filho2 = cruzamento(pai1, pai2)
-            nova_pop.extend([mutacao(filho1, parametros), mutacao(filho2, parametros)])
+            filho1 = mutacao(filho1, parametros)
+            filho2 = mutacao(filho2, parametros)
+            if len(nova_pop) + 2 <= parametros['TAMANHO_POPULACAO']:
+                nova_pop.extend([filho1, filho2])
+            else:
+                nova_pop.append(filho1)
 
-        populacao = nova_pop[:parametros['TAMANHO_POPULACAO']]
+        populacao = nova_pop
 
-        if min(aptidoes) < melhor_dist:
-            melhor_dist = min(aptidoes)
-            melhor_rota = rotas[np.argmin(aptidoes)]
+        if aptidoes_ordenadas[0] < melhor_dist:
+            melhor_dist = aptidoes_ordenadas[0]
+            melhor_rota = rotas_ordenadas[0]
 
     return melhor_dist, melhor_rota
 
-# Função para plotar e salvar a rota encontrada
+# Plota a rota final
 def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
     plt.figure(figsize=(8, 6))
 
-    # Caminho verde da rota (desenhar por baixo)
     xs = [coordenadas[i][0] for i in rota]
     ys = [coordenadas[i][1] for i in rota]
-    plt.plot(xs, ys, color='green', linewidth=2, zorder=1)  # linha de rota
+    plt.plot(xs, ys, color='green', linewidth=2, zorder=1)
 
-    # Clientes (círculos azuis por cima)
     clientes = [i for i in rota if i != deposito]
     plt.scatter([coordenadas[i][0] for i in clientes],
                 [coordenadas[i][1] for i in clientes],
                 c='blue', label='Clientes', zorder=2)
 
-    # Adiciona o número do cliente próximo ao ponto azul
     for i in clientes:
         plt.text(coordenadas[i][0], coordenadas[i][1], str(i),
                  color='black', fontsize=8, fontweight='bold',
                  verticalalignment='bottom', horizontalalignment='right', zorder=4)
 
-    # Depósito (círculo vermelho ainda mais acima)
     plt.scatter(coordenadas[deposito][0], coordenadas[deposito][1],
                 c='red', s=50, label='Depósito', zorder=3)
 
-    # Mostrar número do depósito em vermelho perto do ponto
     plt.text(coordenadas[deposito][0], coordenadas[deposito][1], str(deposito),
              color='black', fontsize=8, fontweight='bold',
              verticalalignment='bottom', horizontalalignment='left', zorder=4)
@@ -147,4 +170,3 @@ def plotar_rota(rota, coordenadas, deposito, caminho_salvar):
     os.makedirs(os.path.dirname(caminho_salvar), exist_ok=True)
     plt.savefig(caminho_salvar)
     plt.close()
-
