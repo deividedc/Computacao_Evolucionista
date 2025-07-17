@@ -1,0 +1,52 @@
+{
+    "arquivo": "E-n23-k3",
+    "media_distancia": 568.7980655558042,
+    "desvio_padrao_distancia": 0.0,
+    "minimo_distancia": 568.7980655558042,
+    "maximo_distancia": 568.7980655558042,
+    "media_tempo": 105.44707417488098,
+    "desvio_padrao_tempo": 0.0,
+    "execucao_melhor_rota": 1,
+    "resultados_execucoes": [
+        {
+            "execucao": 1,
+            "distancia": 568.7980655558042,
+            "rota": [
+                1,
+                13,
+                2,
+                7,
+                29,
+                12,
+                14,
+                11,
+                10,
+                6,
+                5,
+                26,
+                9,
+                8,
+                25,
+                22,
+                24,
+                27,
+                20,
+                21,
+                30,
+                23,
+                18,
+                16,
+                17,
+                4,
+                32,
+                3,
+                15,
+                31,
+                19,
+                28,
+                1
+            ],
+            "tempo_execucao": 105.44707417488098
+        }
+    ]
+}
