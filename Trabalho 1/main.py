@@ -25,7 +25,7 @@ caminho = './evrp-benchmark-set'
 
 # === Lista com os nomes dos arquivos .evrp a serem processados ===
 arquivos = [
-    "E-n23-k3.evrp",
+    # "E-n23-k3.evrp",
     "E-n51-k5.evrp"
 ]
 
