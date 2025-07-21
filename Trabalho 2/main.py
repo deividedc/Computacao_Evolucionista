@@ -16,7 +16,7 @@ parametros = {
     'TAXA_MUTACAO':        0.02,     # Probabilidade de mutação 
     'SEMENTE_BASE':        42,       # Semente base para garantir reprodutibilidade das execuções
     'TORNEIO_K':           7,        # Número de indivíduos no torneio para seleção (maior = mais seletivo)
-    'NUM_ELITISTAS':       0,        # Quantidade de melhores indivíduos mantidos (elitismo)
+    'NUM_ELITISTAS':       4,        # Quantidade de melhores indivíduos mantidos (elitismo)
     'MAX_SEM_MELHORA':     100000,   # Número máximo de gerações sem melhoria antes de resetar população
     'SELECAO':             'torneio' # Método de seleção utilizado ('torneio' ou 'selecao_roleta')
 }
