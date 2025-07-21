@@ -100,9 +100,11 @@ def inicializar_populacao(n_nos, parametros):
 # ============================
 # Crossover em ciclo (Cycle Crossover - CX)
 # ============================
+import random
+
 def cycle_crossover(p1, p2):
     """
-    Aplica o crossover em ciclo (CX) entre dois pais.
+    Aplica o crossover em ciclo (CX) entre dois pais com início de ciclos em posições aleatórias.
 
     Parâmetros:
         p1 (list), p2 (list): Indivíduos pais (listas de permutação)
@@ -113,21 +115,25 @@ def cycle_crossover(p1, p2):
     size = len(p1)
     filho = [None] * size
     ciclos = 0
-    i = 0
 
     while None in filho:
+        # Escolhe aleatoriamente uma posição ainda não preenchida no filho
+        i = random.choice([idx for idx, val in enumerate(filho) if val is None])
+
         if filho[i] is None:
             ciclos += 1
             idx = i
             while True:
+                # Alterna entre os pais: ímpar usa p1, par usa p2
                 filho[idx] = p1[idx] if ciclos % 2 else p2[idx]
                 idx = p1.index(p2[idx])
                 if idx == i:
                     break
-        i = filho.index(None) if None in filho else 0
 
-    filho2 = [p2[i] if x == p1[i] else p1[i] for i, x in enumerate(filho)]
+    # Gera o segundo filho de forma complementar
+    filho2 = [p2[i] if filho[i] == p1[i] else p1[i] for i in range(size)]
     return filho, filho2
+
 
 # ============================
 # Mutações
