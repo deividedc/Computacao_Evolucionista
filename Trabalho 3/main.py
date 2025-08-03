@@ -11,7 +11,7 @@ from AG import ler_arquivo_evrp, evoluir, plotar_rota, calcular_cargas_por_rota
 NUM_EXECUCOES = 20  
 
 # Lista com valores de elitismo para testar (pode ajustar)
-num_elitistas = [0,2]
+num_elitistas = [0, 2]
 
 for elitistas in num_elitistas:
 
@@ -22,7 +22,7 @@ for elitistas in num_elitistas:
         'SEMENTE_BASE': 42,
         'TORNEIO_K': 7,
         'NUM_ELITISTAS': elitistas,
-        'TIPO_CROSSOVER': 'OX',
+        'TIPO_CROSSOVER': 'CX', # OX ou CX
     }
 
     caminho = './evrp-benchmark-set'
@@ -30,6 +30,9 @@ for elitistas in num_elitistas:
         "E-n23-k3.evrp",
         "E-n51-k5.evrp"
     ]
+
+    pasta_crossover = os.path.join(".", f"Resultados_{parametros['TIPO_CROSSOVER']}")
+    os.makedirs(pasta_crossover, exist_ok=True)
 
     for arquivo_nome in arquivos:
         caminho_arquivo = os.path.join(caminho, arquivo_nome)
@@ -43,8 +46,9 @@ for elitistas in num_elitistas:
         cargas = []      # guarda as cargas por rota de cada execução
 
         nome_base = os.path.splitext(arquivo_nome)[0]
+
         nome_subpasta = f"Resultado_Com_Elitismo_{parametros['NUM_ELITISTAS']}"
-        pasta_base = os.path.join(".", nome_base, nome_subpasta)
+        pasta_base = os.path.join(pasta_crossover, nome_base, nome_subpasta)
         pasta_plots = os.path.join(pasta_base, "plots")
         os.makedirs(pasta_plots, exist_ok=True)
 
@@ -63,7 +67,7 @@ for elitistas in num_elitistas:
             end_time = time.time()
             duracao = end_time - start_time
             
-            carga = calcular_cargas_por_rota(rota, dados)  # lista de cargas por rota nesta execução
+            carga = calcular_cargas_por_rota(rota, dados)
 
             print(f"\nExecução {execucao + 1} - {nome_base}:")
             print(f"  ▸ Distância = {distancia:.2f}")
@@ -74,9 +78,8 @@ for elitistas in num_elitistas:
             resultados.append(distancia)
             rotas.append(rota)
             tempos.append(duracao)
-            cargas.append(carga)  # adiciona lista de cargas desta execução
+            cargas.append(carga)
             
-
             nome_arquivo_fig_exec = os.path.join(pasta_plots, f"rota_execucao_{execucao+1}.png")
             plotar_rota(rota, dados, nome_arquivo_fig_exec)
 
@@ -104,14 +107,13 @@ for elitistas in num_elitistas:
             "resultados_execucoes": []
         }
 
-        # Adiciona os resultados detalhados por execução no JSON
         for i in range(NUM_EXECUCOES):
             estatisticas["resultados_execucoes"].append({
                 "execucao": i + 1,
                 "distancia": float(resultados[i]),
                 "rota": rotas[i],
                 "tempo_execucao": float(tempos[i]),
-                "carga_por_rota": cargas[i],  # já é lista de cargas
+                "carga_por_rota": cargas[i],
             })
 
         print("\n=== Estatísticas Finais para", nome_base, "===")
