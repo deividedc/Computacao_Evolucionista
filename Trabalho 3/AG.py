@@ -110,9 +110,10 @@ def distancia(a, b):
 def avaliar(ro, dados):
     """
     Avalia uma solução (rota) somando distâncias e penalizando violações:
-    - capacidade máxima do veículo
-    - energia máxima e consumo
-    - número máximo de veículos permitidos
+    - Capacidade máxima do veículo
+    - Energia máxima e consumo
+    - Número mínimo de veículos permitidos
+    - Penalização severa se o veículo ficar sem energia viável
     Retorna a distância total (fitness) da solução.
     """
     coords = dados['coordenadas']
@@ -124,81 +125,90 @@ def avaliar(ro, dados):
     estacoes = dados['estacoes']
     num_veiculos = dados['numero_veiculos']
 
-    total_dist = 0  # acumulador da distância total
-    carga = 0  # carga atual do veículo
-    energia = energia_max  # energia disponível inicialmente
-    atual = deposito  # nó atual, inicia no depósito
-    rotas = 1  # conta número de rotas usadas (veículos)
+    total_dist = 0
+    carga = 0
+    energia = energia_max
+    atual = deposito
+    rotas = 1
 
     for cliente in ro:
         demanda = demandas[cliente]
         dist = distancia(coords[atual], coords[cliente])
-        energia_necessaria = dist * consumo  # energia consumida para ir até o cliente
+        energia_necessaria = dist * consumo
 
-        # Se a carga excede a capacidade, volta para depósito e reinicia
+        # Se carga excede capacidade, tenta voltar ao depósito
         if carga + demanda > capacidade:
-            total_dist += distancia(coords[atual], coords[deposito])
+            dist_volta = distancia(coords[atual], coords[deposito])
+            energia_volta = dist_volta * consumo
+            if energia < energia_volta:
+                return 1e10  # penalização severa: não consegue retornar ao depósito
+            total_dist += dist_volta
             atual = deposito
             carga = 0
             energia = energia_max
             rotas += 1
+            dist = distancia(coords[atual], coords[cliente])
+            energia_necessaria = dist * consumo
 
-        # Se não tem energia suficiente para o cliente, tenta usar estação de recarga
-        elif energia < energia_necessaria:
+        # Se energia insuficiente para ir direto ao cliente
+        if energia < energia_necessaria:
             estacao_escolhida = None
             menor_dist = float('inf')
+
             for est in estacoes:
                 dist_para_est = distancia(coords[atual], coords[est])
-                dist_est_para_cli = distancia(coords[est], coords[cliente])
-                energia_necessaria_para_est = dist_para_est * consumo
-                energia_necessaria_para_cli = dist_est_para_cli * consumo
+                energia_ate_est = dist_para_est * consumo
 
-                # Verifica se é possível ir até estação e depois ao cliente
-                if energia >= energia_necessaria_para_est and energia_max >= energia_necessaria_para_cli:
-                    rota_com_estacao = dist_para_est + dist_est_para_cli
-                    if rota_com_estacao < menor_dist:
-                        menor_dist = rota_com_estacao
+                dist_est_para_cli = distancia(coords[est], coords[cliente])
+                energia_est_para_cli = dist_est_para_cli * consumo
+
+                if energia >= energia_ate_est and energia_max >= energia_est_para_cli:
+                    dist_total = dist_para_est + dist_est_para_cli
+                    if dist_total < menor_dist:
+                        menor_dist = dist_total
                         estacao_escolhida = est
 
-            # Se encontrou estação viável, vai até ela antes do cliente
             if estacao_escolhida is not None:
+                # Vai até estação e depois ao cliente
                 total_dist += distancia(coords[atual], coords[estacao_escolhida])
                 energia = energia_max
                 atual = estacao_escolhida
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
-                energia -= energia_necessaria
-                carga += demanda
-                total_dist += dist
-                atual = cliente
             else:
-                # Se não, retorna ao depósito para recarregar e reinicia rota
-                total_dist += distancia(coords[atual], coords[deposito])
+                # Tenta retornar ao depósito
+                dist_volta = distancia(coords[atual], coords[deposito])
+                energia_volta = dist_volta * consumo
+                if energia < energia_volta:
+                    return 1e10  # penalização severa: veículo ficaria preso
+                total_dist += dist_volta
                 atual = deposito
                 carga = 0
                 energia = energia_max
                 rotas += 1
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
-                energia -= energia_necessaria
-                carga += demanda
-                total_dist += dist
-                atual = cliente
-        else:
-            # Caso normal: segue para o cliente normalmente
-            carga += demanda
-            energia -= energia_necessaria
-            total_dist += dist
-            atual = cliente
 
-    # Volta final ao depósito
-    total_dist += distancia(coords[atual], coords[deposito])
+        # Move para o cliente
+        energia -= energia_necessaria
+        carga += demanda
+        total_dist += dist
+        atual = cliente
 
-    # Penaliza se número de rotas (veículos) usadas for menor que o permitido
+    # Retorno final ao depósito
+    dist_volta = distancia(coords[atual], coords[deposito])
+    energia_volta = dist_volta * consumo
+    if energia < energia_volta:
+        return 1e10  # penalização severa: não consegue retornar ao depósito
+
+    total_dist += dist_volta
+
+    # Penalização se número de veículos usados for menor que o mínimo exigido
     if rotas < num_veiculos:
         total_dist += 1e6 * (num_veiculos - rotas)
 
     return total_dist
+
 
 # =========================================
 # Gera um indivíduo (rota) aleatória inicial
@@ -324,7 +334,7 @@ def reconstruir_rota(ro, dados):
     deposito = dados['deposito']
     estacoes = dados['estacoes']
 
-    rota_completa = [deposito]  # inicia em depósito
+    rota_completa = [deposito]  # inicia no depósito
     carga = 0
     energia = energia_max
     atual = deposito
@@ -334,42 +344,75 @@ def reconstruir_rota(ro, dados):
         dist = distancia(coords[atual], coords[cliente])
         energia_necessaria = dist * consumo
 
-        # Se extrapola capacidade, volta ao depósito
+        # Se excede a capacidade, volta ao depósito
         if carga + demanda > capacidade:
+            dist_volta = distancia(coords[atual], coords[deposito])
+            energia_volta = dist_volta * consumo
+
+            if energia < energia_volta:
+                # veículo ficaria preso sem conseguir retornar
+                return [deposito]  # retorna rota inválida mínima
             rota_completa.append(deposito)
             atual = deposito
             carga = 0
             energia = energia_max
+            dist = distancia(coords[atual], coords[cliente])
+            energia_necessaria = dist * consumo
 
-        # Se energia insuficiente para ir direto, tenta estação
-        elif energia < energia_necessaria:
+        # Se não há energia para ir direto ao cliente
+        if energia < energia_necessaria:
             estacao_escolhida = None
             menor_dist = float('inf')
+
             for est in estacoes:
                 dist_para_est = distancia(coords[atual], coords[est])
-                dist_est_para_cli = distancia(coords[est], coords[cliente])
-                energia_necessaria_para_est = dist_para_est * consumo
-                energia_necessaria_para_cli = dist_est_para_cli * consumo
+                energia_ate_est = dist_para_est * consumo
 
-                # Verifica se pode ir à estação e depois ao cliente
-                if energia >= energia_necessaria_para_est and energia_max >= energia_necessaria_para_cli:
-                    rota_com_estacao = dist_para_est + dist_est_para_cli
-                    if rota_com_estacao < menor_dist:
-                        menor_dist = rota_com_estacao
+                dist_est_para_cli = distancia(coords[est], coords[cliente])
+                energia_est_para_cli = dist_est_para_cli * consumo
+
+                if energia >= energia_ate_est and energia_max >= energia_est_para_cli:
+                    total_dist_est = dist_para_est + dist_est_para_cli
+                    if total_dist_est < menor_dist:
+                        menor_dist = total_dist_est
                         estacao_escolhida = est
 
             if estacao_escolhida is not None:
+                # Vai para estação
                 rota_completa.append(estacao_escolhida)
                 energia = energia_max
                 atual = estacao_escolhida
+                dist = distancia(coords[atual], coords[cliente])
+                energia_necessaria = dist * consumo
+            else:
+                # Verifica se consegue voltar ao depósito
+                dist_volta = distancia(coords[atual], coords[deposito])
+                energia_volta = dist_volta * consumo
+                if energia < energia_volta:
+                    return [deposito]  # rota inválida
+                rota_completa.append(deposito)
+                atual = deposito
+                carga = 0
+                energia = energia_max
+                dist = distancia(coords[atual], coords[cliente])
+                energia_necessaria = dist * consumo
 
+        # Vai para cliente
         rota_completa.append(cliente)
         carga += demanda
         energia -= energia_necessaria
         atual = cliente
 
-    rota_completa.append(deposito)  # finaliza em depósito
+    # Finaliza rota no depósito
+    dist_final = distancia(coords[atual], coords[deposito])
+    energia_final = dist_final * consumo
+
+    if energia < energia_final:
+        return [deposito]  # rota inválida
+    rota_completa.append(deposito)
+
     return rota_completa
+
 
 def plotar_rota(rota, dados, nome_arquivo):
     """

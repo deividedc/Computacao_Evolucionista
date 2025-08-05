@@ -11,7 +11,7 @@ from AG import ler_arquivo_evrp, evoluir, plotar_rota, calcular_cargas_por_rota
 NUM_EXECUCOES = 20  
 
 # Lista com valores de elitismo para testar (pode ajustar)
-num_elitistas = [0, 2]
+num_elitistas = [2]
 
 for elitistas in num_elitistas:
 
@@ -22,7 +22,7 @@ for elitistas in num_elitistas:
         'SEMENTE_BASE': 42,
         'TORNEIO_K': 7,
         'NUM_ELITISTAS': elitistas,
-        'TIPO_CROSSOVER': 'CX', # OX ou CX
+        'TIPO_CROSSOVER': 'OX', # OX ou CX
     }
 
     caminho = './evrp-benchmark-set'
