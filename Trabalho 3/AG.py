@@ -136,12 +136,11 @@ def avaliar(ro, dados):
         dist = distancia(coords[atual], coords[cliente])
         energia_necessaria = dist * consumo
 
-        # Se carga excede capacidade, tenta voltar ao depósito
         if carga + demanda > capacidade:
             dist_volta = distancia(coords[atual], coords[deposito])
             energia_volta = dist_volta * consumo
             if energia < energia_volta:
-                return 1e10  # penalização severa: não consegue retornar ao depósito
+                return 1e10
             total_dist += dist_volta
             atual = deposito
             carga = 0
@@ -150,37 +149,19 @@ def avaliar(ro, dados):
             dist = distancia(coords[atual], coords[cliente])
             energia_necessaria = dist * consumo
 
-        # Se energia insuficiente para ir direto ao cliente
         if energia < energia_necessaria:
-            estacao_escolhida = None
-            menor_dist = float('inf')
-
-            for est in estacoes:
-                dist_para_est = distancia(coords[atual], coords[est])
-                energia_ate_est = dist_para_est * consumo
-
-                dist_est_para_cli = distancia(coords[est], coords[cliente])
-                energia_est_para_cli = dist_est_para_cli * consumo
-
-                if energia >= energia_ate_est and energia_max >= energia_est_para_cli:
-                    dist_total = dist_para_est + dist_est_para_cli
-                    if dist_total < menor_dist:
-                        menor_dist = dist_total
-                        estacao_escolhida = est
-
+            estacao_escolhida = escolher_estacao_melhorada(atual, cliente, energia, dados)
             if estacao_escolhida is not None:
-                # Vai até estação e depois ao cliente
                 total_dist += distancia(coords[atual], coords[estacao_escolhida])
                 energia = energia_max
                 atual = estacao_escolhida
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
             else:
-                # Tenta retornar ao depósito
                 dist_volta = distancia(coords[atual], coords[deposito])
                 energia_volta = dist_volta * consumo
                 if energia < energia_volta:
-                    return 1e10  # penalização severa: veículo ficaria preso
+                    return 1e10
                 total_dist += dist_volta
                 atual = deposito
                 carga = 0
@@ -189,19 +170,21 @@ def avaliar(ro, dados):
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
 
-        # Move para o cliente
         energia -= energia_necessaria
         carga += demanda
         total_dist += dist
         atual = cliente
 
-    # Retorno final ao depósito
     dist_volta = distancia(coords[atual], coords[deposito])
     energia_volta = dist_volta * consumo
     if energia < energia_volta:
-        return 1e10  # penalização severa: não consegue retornar ao depósito
-
+        return 1e10
     total_dist += dist_volta
+
+    if rotas < num_veiculos:
+        total_dist += 1e6 * (num_veiculos - rotas)
+
+    return total_dist
 
     # Penalização se número de veículos usados for menor que o mínimo exigido
     if rotas < num_veiculos:
@@ -211,8 +194,142 @@ def avaliar(ro, dados):
 
 
 # =========================================
-# Gera um indivíduo (rota) aleatória inicial
+# Gera um indivíduo (rota)
 # =========================================
+
+# =========================================
+# ACO
+# =========================================
+
+def gerar_individuo_aco(dados, num_iteracoes=10, alpha=1.0, beta=3.0, rho=0.1, Q=1.0):
+    coords = dados['coordenadas']
+    demandas = dados['demandas']
+    clientes = list(dados['clientes'])
+    estacoes = dados['estacoes']
+    deposito = dados['deposito']
+    capacidade = dados['capacidade']
+    energia_max = dados['energia_max']
+    consumo = dados['consumo']
+
+    n = len(clientes)
+    nodes = [deposito] + clientes + list(estacoes)
+    node_indices = {node: i for i, node in enumerate(nodes)}
+
+    dist_matrix = np.zeros((len(nodes), len(nodes)))
+    for i in range(len(nodes)):
+        for j in range(len(nodes)):
+            dist_matrix[i][j] = distancia(coords[nodes[i]], coords[nodes[j]])
+
+    pheromones = np.ones((len(nodes), len(nodes)))
+
+    melhor_rota = None
+    melhor_custo = float('inf')
+
+    for _ in range(num_iteracoes):
+        nao_visitados = set(clientes)
+        rota = []
+        carga = 0
+        energia = energia_max
+        atual = deposito
+
+        while nao_visitados:
+            i_atual = node_indices[atual]
+            candidatos = []
+            probs = []
+
+            for c in nao_visitados:
+                i_c = node_indices[c]
+                demanda_c = demandas[c]
+                dist = dist_matrix[i_atual][i_c]
+                energia_necessaria = dist * consumo
+
+                if carga + demanda_c <= capacidade and energia >= energia_necessaria:
+                    tau = pheromones[i_atual][i_c] ** alpha
+                    eta = (1.0 / (dist + 1e-6)) ** beta
+                    candidatos.append(c)
+                    probs.append(tau * eta)
+
+            if not candidatos:
+                carga = 0
+                energia = energia_max
+                atual = deposito
+                continue
+
+            total = sum(probs)
+            probs = [p / total for p in probs]
+            escolhido = random.choices(candidatos, weights=probs, k=1)[0]
+
+            rota.append(escolhido)
+            dist_percorrido = dist_matrix[node_indices[atual]][node_indices[escolhido]]
+            energia -= dist_percorrido * consumo
+            carga += demandas[escolhido]
+            atual = escolhido
+            nao_visitados.remove(escolhido)
+
+        custo = avaliar(rota, dados)  # só float
+        rota_corrigida = reconstruir_rota(rota, dados)  # corrige rota incluindo depósito e estações
+
+        # Atualiza feromônios na rota corrigida
+        for i in range(len(rota_corrigida)-1):
+            a = node_indices[rota_corrigida[i]]
+            b = node_indices[rota_corrigida[i+1]]
+            pheromones[a][b] = (1 - rho) * pheromones[a][b] + rho * Q / (dist_matrix[a][b] + 1e-6)
+            pheromones[b][a] = pheromones[a][b]
+
+        if custo < melhor_custo:
+            melhor_custo = custo
+            melhor_rota = rota
+
+    return melhor_rota
+
+
+
+
+
+# ========================================
+# KNN
+# ========================================
+
+def gerar_individuo_guloso(dados):
+    coords = dados['coordenadas']
+    demandas = dados['demandas']
+    clientes_disponiveis = set(dados['clientes'])
+    deposito = dados['deposito']
+    capacidade = dados['capacidade']
+    energia_max = dados['energia_max']
+    consumo = dados['consumo']
+
+    atual = deposito
+    energia = energia_max
+    carga = 0
+    rota = []
+
+    while clientes_disponiveis:
+        proximos = sorted(
+            clientes_disponiveis,
+            key=lambda c: distancia(coords[atual], coords[c])
+        )
+
+        for cliente in proximos:
+            demanda = demandas[cliente]
+            dist = distancia(coords[atual], coords[cliente])
+            energia_necessaria = dist * consumo
+
+            if carga + demanda <= capacidade and energia >= energia_necessaria:
+                rota.append(cliente)
+                carga += demanda
+                energia -= energia_necessaria
+                atual = cliente
+                clientes_disponiveis.remove(cliente)
+                break
+        else:
+            atual = deposito
+            energia = energia_max
+            carga = 0
+
+    return rota
+
+
 def gerar_individuo(dados):
     """
     Gera um indivíduo embaralhando aleatoriamente a lista de clientes.
@@ -237,6 +354,38 @@ def torneio(populacao, aptidoes, k):
 # ============================================================
 # Operadores de Crossover
 # ============================================================
+
+def crossover_PMX(pai1, pai2):
+    n = len(pai1)
+    i, j = sorted(random.sample(range(n), 2))
+    filho = [None] * n
+
+    # Copia segmento do pai1
+    filho[i:j] = pai1[i:j]
+
+    # Cria mapeamentos bidirecionais
+    map1 = {}
+    map2 = {}
+    for a, b in zip(pai1[i:j], pai2[i:j]):
+        map1[b] = a
+        map2[a] = b
+
+    def resolve_conflito(gene):
+        # Resolve conflito navegando no mapeamento até achar gene não conflituoso
+        while gene in filho[i:j]:
+            gene = map1.get(gene, gene)
+        return gene
+
+    # Preenche posições antes e depois do segmento
+    for idx in list(range(0, i)) + list(range(j, n)):
+        gene = pai2[idx]
+        if gene in filho[i:j]:
+            gene = resolve_conflito(gene)
+        filho[idx] = gene
+
+    return filho
+
+
 
 def crossover_OX(pai1, pai2):
     """
@@ -278,12 +427,78 @@ def crossover_CX(pai1, pai2):
 
 def crossover(pai1, pai2, tipo="OX"):
     """
-    Wrapper para escolher o tipo de crossover entre OX e CX.
+    Wrapper para escolher o tipo de crossover entre OX,CX e PMX.
     """
     if tipo == "CX":
         return crossover_CX(pai1, pai2)
+    elif tipo == "PMX":
+        return crossover_PMX(pai1, pai2)
     else:
         return crossover_OX(pai1, pai2)
+    
+# ============================
+# População inicial
+# ============================
+
+def gerar_populacao_inicial(dados, tamanho_pop, perc_guloso =0.5, perc_aco=0.5):
+    """
+    Gera população inicial combinando:
+      - perc_guloso  fraction usando gerar_individuo_guloso 
+      - perc_aco  fraction usando gerar_individuo_aco (ACO)
+      - restante usando gerar_individuo (aleatório)
+    perc_guloso  and perc_aco are floats entre 0 e 1. Se a soma > 1.0, normaliza-se.
+    Retorna lista de indivíduos (cada indivíduo = lista/permutação de clientes).
+    """
+    # Normaliza percentuais se necessário
+    if perc_guloso  < 0: perc_guloso  = 0.0
+    if perc_aco < 0: perc_aco = 0.0
+    s = perc_guloso  + perc_aco
+    if s > 1e-12 and s != 1.0:
+        if s > 1.0:
+            perc_guloso  = perc_guloso  / s
+            perc_aco = perc_aco / s
+        # se soma < 1.0: sobra para aleatórios, mantemos perc_guloso  e perc_aco como estão
+
+    num_knn = int(round(tamanho_pop * perc_guloso ))
+    num_aco = int(round(tamanho_pop * perc_aco))
+    # Ajuste final para garantir exatamente tamanho_pop elementos
+    total = num_knn + num_aco
+    num_random = max(0, tamanho_pop - total)
+
+    populacao = []
+
+    # Gera indivíduos KNN (guloso)
+    for _ in range(num_knn):
+        ind = gerar_individuo_guloso(dados)
+        # garante formato
+        if ind is None:
+            ind = gerar_individuo(dados)
+        populacao.append(ind)
+
+    # Gera indivíduos ACO
+    for _ in range(num_aco):
+        # ACO pode ocasionalmente retornar None; tenta algumas vezes
+        tentativa = 0
+        ind = None
+        while tentativa < 5 and ind is None:
+            ind = gerar_individuo_aco(dados)
+            tentativa += 1
+        if ind is None:
+            ind = gerar_individuo(dados)
+        populacao.append(ind)
+
+    # Gera indivíduos aleatórios para completar
+    for _ in range(num_random):
+        populacao.append(gerar_individuo(dados))
+
+    # Se por arredondamento ficar maior que tamanho_pop, corta
+    if len(populacao) > tamanho_pop:
+        populacao = populacao[:tamanho_pop]
+
+    # Embaralha a população para misturar origens (opcional)
+    random.shuffle(populacao)
+    return populacao
+
 
 # ============================
 # Mutações
@@ -332,9 +547,8 @@ def reconstruir_rota(ro, dados):
     energia_max = dados['energia_max']
     consumo = dados['consumo']
     deposito = dados['deposito']
-    estacoes = dados['estacoes']
 
-    rota_completa = [deposito]  # inicia no depósito
+    rota_completa = [deposito]
     carga = 0
     energia = energia_max
     atual = deposito
@@ -344,14 +558,11 @@ def reconstruir_rota(ro, dados):
         dist = distancia(coords[atual], coords[cliente])
         energia_necessaria = dist * consumo
 
-        # Se excede a capacidade, volta ao depósito
         if carga + demanda > capacidade:
             dist_volta = distancia(coords[atual], coords[deposito])
             energia_volta = dist_volta * consumo
-
             if energia < energia_volta:
-                # veículo ficaria preso sem conseguir retornar
-                return [deposito]  # retorna rota inválida mínima
+                return [deposito]
             rota_completa.append(deposito)
             atual = deposito
             carga = 0
@@ -359,37 +570,19 @@ def reconstruir_rota(ro, dados):
             dist = distancia(coords[atual], coords[cliente])
             energia_necessaria = dist * consumo
 
-        # Se não há energia para ir direto ao cliente
         if energia < energia_necessaria:
-            estacao_escolhida = None
-            menor_dist = float('inf')
-
-            for est in estacoes:
-                dist_para_est = distancia(coords[atual], coords[est])
-                energia_ate_est = dist_para_est * consumo
-
-                dist_est_para_cli = distancia(coords[est], coords[cliente])
-                energia_est_para_cli = dist_est_para_cli * consumo
-
-                if energia >= energia_ate_est and energia_max >= energia_est_para_cli:
-                    total_dist_est = dist_para_est + dist_est_para_cli
-                    if total_dist_est < menor_dist:
-                        menor_dist = total_dist_est
-                        estacao_escolhida = est
-
+            estacao_escolhida = escolher_estacao_melhorada(atual, cliente, energia, dados)
             if estacao_escolhida is not None:
-                # Vai para estação
                 rota_completa.append(estacao_escolhida)
                 energia = energia_max
                 atual = estacao_escolhida
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
             else:
-                # Verifica se consegue voltar ao depósito
                 dist_volta = distancia(coords[atual], coords[deposito])
                 energia_volta = dist_volta * consumo
                 if energia < energia_volta:
-                    return [deposito]  # rota inválida
+                    return [deposito]
                 rota_completa.append(deposito)
                 atual = deposito
                 carga = 0
@@ -397,21 +590,20 @@ def reconstruir_rota(ro, dados):
                 dist = distancia(coords[atual], coords[cliente])
                 energia_necessaria = dist * consumo
 
-        # Vai para cliente
         rota_completa.append(cliente)
         carga += demanda
         energia -= energia_necessaria
         atual = cliente
 
-    # Finaliza rota no depósito
     dist_final = distancia(coords[atual], coords[deposito])
     energia_final = dist_final * consumo
 
     if energia < energia_final:
-        return [deposito]  # rota inválida
+        return [deposito]
     rota_completa.append(deposito)
 
     return rota_completa
+
 
 
 def plotar_rota(rota, dados, nome_arquivo):
@@ -525,7 +717,12 @@ def evoluir(dados, parametros):
     max_aval = 25000 * n_nos  # limite máximo de avaliações para parar
 
     # Cria população inicial aleatória
-    populacao = [gerar_individuo(dados) for _ in range(TAM)]
+    # populacao = [gerar_individuo_guloso(dados) for _ in range(TAM)]
+    # populacao = [gerar_individuo_aco(dados) for _ in range(TAM)]
+    populacao = gerar_populacao_inicial(dados, TAM, parametros.get('PERC_', 0.5), parametros.get('PERC_ACO', 0.5))
+
+
+    
     aptidoes = [avaliar(ind, dados) for ind in populacao]
     num_aval = TAM  # número de avaliações já feitas
 
@@ -565,3 +762,47 @@ def evoluir(dados, parametros):
 
     # Retorna a melhor distância e a rota reconstruída com depósitos e estações
     return melhor_aptidao, reconstruir_rota(melhor_individuo, dados)
+
+
+
+
+
+
+
+
+
+
+#==============================================================================
+# Escolher estaçao
+#==============================================================================
+def escolher_estacao_melhorada(atual, cliente, energia, dados):
+    """
+    Escolhe a melhor estação de recarga com base em múltiplos critérios:
+    - Energia viável
+    - Custo total: atual → estação → cliente → depósito (lookahead)
+    """
+    coords = dados['coordenadas']
+    estacoes = dados['estacoes']
+    energia_max = dados['energia_max']
+    consumo = dados['consumo']
+    deposito = dados['deposito']
+
+    melhor_estacao = None
+    menor_custo = float('inf')
+
+    for est in estacoes:
+        dist_ate_est = distancia(coords[atual], coords[est])
+        energia_ate_est = dist_ate_est * consumo
+
+        dist_est_para_cli = distancia(coords[est], coords[cliente])
+        energia_est_para_cli = dist_est_para_cli * consumo
+
+        if energia >= energia_ate_est and energia_max >= energia_est_para_cli:
+            dist_cli_para_dep = distancia(coords[cliente], coords[deposito])
+
+            custo_total = dist_ate_est + dist_est_para_cli + 0.5 * dist_cli_para_dep  # pesos ajustáveis
+            if custo_total < menor_custo:
+                menor_custo = custo_total
+                melhor_estacao = est
+
+    return melhor_estacao
