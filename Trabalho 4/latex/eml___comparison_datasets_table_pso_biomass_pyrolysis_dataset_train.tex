@@ -1,0 +1,16 @@
+\begin{table}
+\centering
+\label{eml___comparison_datasets_table_pso_biomass_pyrolysis_dataset_train.tex}
+\begin{tabular}{rrrrrrrrrrr}
+\toprule
+Modeling Phase &                   Dataset & Optimizer &        Output & Estimator &                    R &                R$^2$ &                 RMSE &                  MAE &                 MAPE &                  MSE \\
+\midrule
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &       ANN &        0.850 (0.089) &        0.718 (0.149) &        5.038 (1.140) &        3.840 (0.959) &       10.580 (2.879) &      26.684 (14.084) \\
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &        EN &        0.527 (0.018) &        0.278 (0.019) &        8.269 (0.187) &        6.482 (0.171) &       18.884 (0.648) &       68.406 (3.099) \\
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &       KNN &        0.990 (0.027) &        0.981 (0.052) &        0.729 (1.104) & { \bf 0.320} (0.821) & { \bf 0.854} (2.282) &        1.750 (4.829) \\
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &        RF &        0.988 (0.003) &        0.973 (0.006) &        1.575 (0.166) &        0.999 (0.108) &        2.851 (0.320) &        2.508 (0.567) \\
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &       SVR &        0.866 (0.080) &        0.749 (0.133) &        4.671 (1.431) &        3.488 (1.170) &        9.540 (3.219) &      23.862 (12.873) \\
+         TRAIN & Biomass pyrolysis dataset &       PSO & Bio-oil yield &       XGB & { \bf 0.997} (0.003) & { \bf 0.995} (0.006) & { \bf 0.623} (0.319) &        0.349 (0.296) &        0.894 (0.783) & { \bf 0.490} (0.563) \\
+\bottomrule
+\end{tabular}
+\end{table}

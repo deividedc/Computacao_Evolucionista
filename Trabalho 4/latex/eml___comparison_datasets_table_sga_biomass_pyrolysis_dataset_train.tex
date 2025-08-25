@@ -1,0 +1,16 @@
+\begin{table}
+\centering
+\label{eml___comparison_datasets_table_sga_biomass_pyrolysis_dataset_train.tex}
+\begin{tabular}{rrrrrrrrrrr}
+\toprule
+Modeling Phase &                   Dataset & Optimizer &        Output & Estimator &                    R &                R$^2$ &                 RMSE &                  MAE &                 MAPE &                  MSE \\
+\midrule
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &       ANN &        0.839 (0.070) &        0.697 (0.120) &        5.262 (0.957) &        4.048 (0.809) &       11.176 (2.459) &      28.602 (10.915) \\
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &        EN &        0.527 (0.018) &        0.278 (0.019) &        8.269 (0.187) &        6.482 (0.171) &       18.884 (0.648) &       68.405 (3.099) \\
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &       KNN &        0.992 (0.025) &        0.984 (0.048) & { \bf 0.658} (1.009) & { \bf 0.266} (0.748) & { \bf 0.706} (2.080) &        1.450 (4.439) \\
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &        RF &        0.988 (0.003) &        0.973 (0.006) &        1.576 (0.170) &        0.997 (0.097) &        2.841 (0.290) &        2.512 (0.579) \\
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &       SVR &        0.974 (0.016) &        0.897 (0.072) &        2.902 (1.146) &        2.660 (1.135) &        7.169 (3.113) &        9.734 (6.763) \\
+         TRAIN & Biomass pyrolysis dataset &       SGA & Bio-oil yield &       XGB & { \bf 0.997} (0.004) & { \bf 0.993} (0.007) &        0.718 (0.358) &        0.454 (0.316) &        1.174 (0.841) & { \bf 0.644} (0.705) \\
+\bottomrule
+\end{tabular}
+\end{table}
